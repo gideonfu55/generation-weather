@@ -12,7 +12,7 @@ const WeatherDetails = ({ data }) => {
       {/* Add more weather details here as needed */}
       <div className="detail-item">
         <span className="detail-label">Description:</span>
-        <span className="detail-value">{data.description} {data.description}</span>
+        <span className="detail-value">{data.description}</span>
       </div>
     </div>
   );
