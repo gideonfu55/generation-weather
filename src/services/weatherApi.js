@@ -1,5 +1,11 @@
 const API_URL = 'https://api.open-meteo.com/v1/forecast';
 const GEO_API_URL = 'https://geocoding-api.open-meteo.com/v1/search';
+const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
+const weatherCache = new Map();
+
+// For rate limiting protection
+let lastRequestTime = 0;
+const MIN_REQUEST_INTERVAL = 1000; // 1 second minimum between requests
 
 /**
  * Custom error class for API-related errors
@@ -16,27 +22,28 @@ export class WeatherApiError extends Error {
 /**
  * Validates city name input
  * @param {string} city - The city name to validate
- * @throws {Error} If city name is invalid
+ * @throws {WeatherApiError} If city name is invalid
+ * @returns {string} The validated and trimmed city name
  */
 const validateCityInput = (city) => {
   if (!city) {
-    throw new Error('City name is required');
+    throw new WeatherApiError('City name is required', null, 'validation');
   }
 
   if (typeof city !== 'string') {
-    throw new Error('City name must be a string');
+    throw new WeatherApiError('City name must be a string', null, 'validation');
   }
 
   const trimmedCity = city.trim();
 
   if (trimmedCity.length === 0) {
-    throw new Error('City name cannot be empty');
+    throw new WeatherApiError('City name cannot be empty', null, 'validation');
   }
 
   // Check for valid characters (letters, spaces, hyphens, and some special characters used in city names)
   const validCityRegex = /^[a-zA-Z\s\-'.]+$/;
   if (!validCityRegex.test(trimmedCity)) {
-    throw new Error('City name contains invalid characters');
+    throw new WeatherApiError('City name contains invalid characters', null, 'validation');
   }
 
   return trimmedCity;
@@ -47,8 +54,14 @@ const validateCityInput = (city) => {
  * @param {Response} response - The fetch API response object
  * @param {string} serviceName - Name of the service for error messages
  * @throws {WeatherApiError} If response is not ok
+ * @returns {Promise<Object>} The parsed JSON response
  */
 const handleApiResponse = async (response, serviceName) => {
+  // Validate parameters
+  if (!serviceName || typeof serviceName !== 'string') {
+    serviceName = 'API';
+  }
+
   if (!response) {
     throw new WeatherApiError(`No response from ${serviceName}`, null, 'network');
   }
@@ -71,7 +84,11 @@ const handleApiResponse = async (response, serviceName) => {
     throw new WeatherApiError(errorMessage, response.status, 'api');
   }
 
-  return await response.json();
+  try {
+    return await response.json();
+  } catch (error) {
+    throw new WeatherApiError(`Invalid JSON response from ${serviceName}`, null, 'dataFormat');
+  }
 };
 
 /**
@@ -85,10 +102,21 @@ export const fetchWeatherData = async (city) => {
     // Validate city input before making API request
     const validatedCity = validateCityInput(city);
 
+    // Check cache first
+    const cachedData = getCachedWeatherData(validatedCity);
+    if (cachedData) {
+      console.log('Using cached weather data for:', validatedCity);
+      // Return directly as the cached data should already be formatted
+      return cachedData;
+    }
+
+    // Rate limiting protection
+    await enforceRateLimit();
+
     // Handle network errors
     let geoResponse;
     try {
-      geoResponse = await fetch(`${GEO_API_URL}?name=${encodeURIComponent(validatedCity)}&count=1`);
+      geoResponse = await fetchWithTimeout(`${GEO_API_URL}?name=${encodeURIComponent(validatedCity)}&count=1`);
     } catch (error) {
       throw new WeatherApiError(
         'Failed to connect to geocoding service. Please check your internet connection.',
@@ -136,7 +164,13 @@ export const fetchWeatherData = async (city) => {
       );
     }
 
-    return weatherData;
+    // Format the data for UI consumption
+    const formattedData = formatWeatherData(weatherData, validatedCity);
+
+    // Cache before returning the weather data
+    cacheWeatherData(validatedCity, formattedData);
+
+    return formattedData;
   } catch (error) {
     // Re-throw WeatherApiError instances, but wrap other errors
     if (error instanceof WeatherApiError) {
@@ -153,11 +187,93 @@ export const fetchWeatherData = async (city) => {
 };
 
 /**
+ * Checks if cached weather data is available and fresh
+ * @param {string} cityName - The city name to check in cache
+ * @returns {Object|null} Cached weather data or null if not available
+ */
+const getCachedWeatherData = (cityName) => {
+  if (!cityName) return null;
+
+  const normalizedCity = cityName.trim().toLowerCase();
+  const cachedData = weatherCache.get(normalizedCity);
+
+  if (!cachedData) return null;
+
+  const now = new Date().getTime();
+  if (now - cachedData.timestamp > CACHE_DURATION) {
+    // Cache expired
+    weatherCache.delete(normalizedCity);
+    return null;
+  }
+
+  return cachedData.data;
+};
+
+/**
+ * Saves weather data to cache
+ * @param {string} cityName - The city name as cache key
+ * @param {Object} data - The weather data to cache
+ */
+const cacheWeatherData = (cityName, data) => {
+  if (!cityName || !data) return;
+
+  const normalizedCity = cityName.trim().toLowerCase();
+  weatherCache.set(normalizedCity, {
+    data,
+    timestamp: new Date().getTime()
+  });
+};
+
+/**
+ * Creates a fetch request with timeout
+ * @param {string} url - The URL to fetch
+ * @param {number} timeout - Timeout in milliseconds
+ * @returns {Promise<Response>} - Fetch response
+ */
+const fetchWithTimeout = async (url, timeout = 8000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    if (error.name === 'AbortError') {
+      throw new WeatherApiError('Request timed out. Please try again later.', null, 'timeout');
+    }
+    throw error;
+  }
+};
+
+/**
+ * Ensures requests aren't sent too frequently
+ * @returns {Promise<void>} Resolves when it's safe to make a new request
+ */
+const enforceRateLimit = async () => {
+  const now = Date.now();
+  const timeSinceLastRequest = now - lastRequestTime;
+
+  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+    // Wait until the minimum interval has passed
+    const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+  }
+
+  lastRequestTime = Date.now();
+};
+
+/**
  * Maps weather codes to descriptions
  * @param {number} code - The weather code from the API
  * @returns {string} A human-readable weather description
  */
 export const getWeatherDescription = (code) => {
+  if (code === undefined || code === null) {
+    return 'Weather information unavailable';
+  }
+
   const weatherCodes = {
     0: 'Clear sky',
     1: 'Mainly clear',
@@ -181,5 +297,28 @@ export const getWeatherDescription = (code) => {
     // Add more codes as needed
   };
 
-  return weatherCodes[code] || 'Unknown';
+  return weatherCodes[code] || `Unknown weather condition (code: ${code})`;
+};
+
+/**
+ * Transforms raw weather data into a more usable format for the UI
+ * @param {Object} weatherData - Raw weather data from API
+ * @param {string} cityName - The city name used for the search
+ * @returns {Object} Formatted weather data ready for display
+ */
+export const formatWeatherData = (weatherData, cityName) => {
+  if (!weatherData || !weatherData.current) {
+    throw new WeatherApiError('Cannot format invalid weather data', null, 'dataFormat');
+  }
+
+  return {
+    city: cityName,
+    temperature: weatherData.current.temperature_2m,
+    temperatureUnit: weatherData.current_units?.temperature_2m || '°C',
+    description: getWeatherDescription(weatherData.current.weather_code),
+    weatherCode: weatherData.current.weather_code,
+    windSpeed: weatherData.current.wind_speed_10m,
+    windSpeedUnit: weatherData.current_units?.wind_speed_10m || 'km/h',
+    timestamp: new Date().toISOString()
+  };
 };
