@@ -180,7 +180,7 @@ const getCachedWeatherData = (cityName) => {
 };
 
 /**
- * Ensures requests aren't sent too frequently
+ * Ensures requests aren't sent too frequently and based on the minimum request interval
  * @returns {Promise<void>} Resolves when it's safe to make a new request
  */
 const enforceRateLimit = async () => {
