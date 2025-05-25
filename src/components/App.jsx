@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import SearchBar from './SearchBar';
 import WeatherCard from './WeatherCard';
 import useWeather from '../hooks/useWeather';
