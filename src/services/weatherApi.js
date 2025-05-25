@@ -165,8 +165,6 @@ export const fetchWeatherData = async (city) => {
 
     // Log the entire response
     console.log('Full weather API response:', JSON.stringify(weatherData, null, 2));
-    console.log('Current object exists:', !!weatherData?.current);
-    console.log('temperature_2m exists:', weatherData?.current?.temperature_2m !== undefined);
 
     // Validate weather data structure
     if (!weatherData || !weatherData.current) {
@@ -176,9 +174,6 @@ export const fetchWeatherData = async (city) => {
         'dataFormat'
       );
     }
-
-    // Log again after validation
-    console.log('About to format with:', JSON.stringify(weatherData.current, null, 2));
 
     // Format the data for UI consumption using our safe formatWeatherData 
     const formattedData = formatWeatherData(weatherData, validatedCity);
@@ -324,14 +319,11 @@ export const getWeatherDescription = (code) => {
  * @returns {Object} Formatted weather data ready for display
  */
 export const formatWeatherData = (weatherData, cityName) => {
-  // Add defensive check at the beginning
+  // Defensive check for null/undefined weatherData
   if (!weatherData) {
     console.error('formatWeatherData called with null/undefined weatherData');
     return createDefaultWeatherData(cityName);
   }
-
-  // Add direct debug output here
-  console.log("Formatting weather data:", JSON.stringify(weatherData));
 
   // More specific check for weatherData.current
   if (!weatherData.current) {
@@ -339,8 +331,7 @@ export const formatWeatherData = (weatherData, cityName) => {
     return createDefaultWeatherData(cityName);
   }
 
-  // Now that we've confirmed weatherData and weatherData.current exist,
-  // we can safely access their properties using optional chaining for extra safety
+  // Now that we've confirmed weatherData and weatherData.current exist, we can safely access their properties using optional chaining for extra safety
   return {
     city: cityName || 'Unknown',
     temperature: weatherData?.current?.temperature_2m ?? null,
