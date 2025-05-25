@@ -1,19 +1,19 @@
-import React from 'react';
 
 const WeatherDetails = ({ data }) => {
+  // Make sure data exists before trying to access properties
   if (!data) return null;
 
   return (
     <div className="weather-details">
-      <div className="detail-item">
-        <span className="detail-label">Wind:</span>
-        <span className="detail-value">{data.windSpeed} {data.windSpeedUnit}</span>
-      </div>
-      {/* Add more weather details here as needed */}
-      <div className="detail-item">
-        <span className="detail-label">Description:</span>
-        <span className="detail-value">{data.description}</span>
-      </div>
+      {data.windSpeed !== null && data.windSpeed !== undefined && (
+        <div className="detail-item">
+          <span className="detail-label">Wind:</span>
+          <span className="detail-value">
+            {data.windSpeed} {data.windSpeedUnit || 'km/h'}
+          </span>
+        </div>
+      )}
+      {/* Add any other weather details here */}
     </div>
   );
 };

@@ -1,4 +1,3 @@
-import React from 'react';
 import { formatTemperature, capitalizeWords } from '../utils/formatters';
 import WeatherDetails from './WeatherDetails';
 

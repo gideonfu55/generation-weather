@@ -26,27 +26,35 @@ export class WeatherApiError extends Error {
  * @returns {string} The validated and trimmed city name
  */
 const validateCityInput = (city) => {
-  if (!city) {
-    throw new WeatherApiError('City name is required', null, 'validation');
+  try {
+    if (!city) {
+      throw new WeatherApiError('City name is required', null, 'validation');
+    }
+
+    if (typeof city !== 'string') {
+      // Convert to string if possible
+      city = String(city);
+    }
+
+    const trimmedCity = city.trim();
+
+    if (trimmedCity.length === 0) {
+      throw new WeatherApiError('City name cannot be empty', null, 'validation');
+    }
+
+    // Slightly more permissive regex
+    const validCityRegex = /^[a-zA-Z0-9\s\-'.]+$/;
+    if (!validCityRegex.test(trimmedCity)) {
+      throw new WeatherApiError('City name contains invalid characters', null, 'validation');
+    }
+
+    return trimmedCity;
+  } catch (error) {
+    if (error instanceof WeatherApiError) {
+      throw error;
+    }
+    throw new WeatherApiError('Failed to validate city name: ' + error.message, null, 'validation');
   }
-
-  if (typeof city !== 'string') {
-    throw new WeatherApiError('City name must be a string', null, 'validation');
-  }
-
-  const trimmedCity = city.trim();
-
-  if (trimmedCity.length === 0) {
-    throw new WeatherApiError('City name cannot be empty', null, 'validation');
-  }
-
-  // Check for valid characters (letters, spaces, hyphens, and some special characters used in city names)
-  const validCityRegex = /^[a-zA-Z\s\-'.]+$/;
-  if (!validCityRegex.test(trimmedCity)) {
-    throw new WeatherApiError('City name contains invalid characters', null, 'validation');
-  }
-
-  return trimmedCity;
 };
 
 /**
@@ -141,7 +149,7 @@ export const fetchWeatherData = async (city) => {
     // Handle network errors for weather API
     let weatherResponse;
     try {
-      weatherResponse = await fetch(
+      weatherResponse = await fetchWithTimeout(
         `${API_URL}?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto`
       );
     } catch (error) {
@@ -155,6 +163,11 @@ export const fetchWeatherData = async (city) => {
     // Process weather API response
     const weatherData = await handleApiResponse(weatherResponse, 'Weather');
 
+    // Log the entire response
+    console.log('Full weather API response:', JSON.stringify(weatherData, null, 2));
+    console.log('Current object exists:', !!weatherData?.current);
+    console.log('temperature_2m exists:', weatherData?.current?.temperature_2m !== undefined);
+
     // Validate weather data structure
     if (!weatherData || !weatherData.current) {
       throw new WeatherApiError(
@@ -164,20 +177,10 @@ export const fetchWeatherData = async (city) => {
       );
     }
 
-    // Check if we have the expected property
-    if (weatherData.current.temperature_2m === undefined) {
-      console.warn('API response missing temperature data:', weatherData);
+    // Log again after validation
+    console.log('About to format with:', JSON.stringify(weatherData.current, null, 2));
 
-      // Format the data for UI consumption
-      const formattedData = formatWeatherData(weatherData, validatedCity);
-
-      // Cache before returning the weather data
-      cacheWeatherData(validatedCity, formattedData);
-
-      return formattedData;
-    }
-
-    // Format the data for UI consumption (normal path)
+    // Format the data for UI consumption using our safe formatWeatherData 
     const formattedData = formatWeatherData(weatherData, validatedCity);
 
     // Cache the formatted data
@@ -321,39 +324,44 @@ export const getWeatherDescription = (code) => {
  * @returns {Object} Formatted weather data ready for display
  */
 export const formatWeatherData = (weatherData, cityName) => {
-  // Check if we have valid weather data
+  // Add defensive check at the beginning
   if (!weatherData) {
-    throw new WeatherApiError('Weather data is missing', null, 'dataFormat');
+    console.error('formatWeatherData called with null/undefined weatherData');
+    return createDefaultWeatherData(cityName);
   }
 
-  // Check if current data exists
+  // Add direct debug output here
+  console.log("Formatting weather data:", JSON.stringify(weatherData));
+
+  // More specific check for weatherData.current
   if (!weatherData.current) {
-    throw new WeatherApiError('Current weather data is missing', null, 'dataFormat');
+    console.error('formatWeatherData called with missing weatherData.current');
+    return createDefaultWeatherData(cityName);
   }
 
-  // Get weather properties with safe fallbacks
-  const temperature = weatherData.current.temperature_2m !== undefined ?
-    weatherData.current.temperature_2m : null;
-
-  const weatherCode = weatherData.current.weather_code !== undefined ?
-    weatherData.current.weather_code : null;
-
-  const windSpeed = weatherData.current.wind_speed_10m !== undefined ?
-    weatherData.current.wind_speed_10m : null;
-
-  // Get units with safe fallbacks
-  const temperatureUnit = (weatherData.current_units && weatherData.current_units.temperature_2m) || '°C';
-  const windSpeedUnit = (weatherData.current_units && weatherData.current_units.wind_speed_10m) || 'km/h';
-
-  // Return formatted data with all properties safely extracted
+  // Now that we've confirmed weatherData and weatherData.current exist,
+  // we can safely access their properties using optional chaining for extra safety
   return {
-    city: cityName,
-    temperature: temperature,
-    temperatureUnit: temperatureUnit,
-    description: getWeatherDescription(weatherCode),
-    weatherCode: weatherCode,
-    windSpeed: windSpeed,
-    windSpeedUnit: windSpeedUnit,
+    city: cityName || 'Unknown',
+    temperature: weatherData?.current?.temperature_2m ?? null,
+    temperatureUnit: weatherData?.current_units?.temperature_2m || '°C',
+    description: getWeatherDescription(weatherData?.current?.weather_code),
+    weatherCode: weatherData?.current?.weather_code ?? null,
+    windSpeed: weatherData?.current?.wind_speed_10m ?? null,
+    windSpeedUnit: weatherData?.current_units?.wind_speed_10m || 'km/h',
+    timestamp: new Date().toISOString()
+  };
+};
+
+const createDefaultWeatherData = (cityName) => {
+  return {
+    city: cityName || 'Unknown',
+    temperature: null,
+    temperatureUnit: '°C',
+    description: 'Weather information unavailable',
+    weatherCode: null,
+    windSpeed: null,
+    windSpeedUnit: 'km/h',
     timestamp: new Date().toISOString()
   };
 };

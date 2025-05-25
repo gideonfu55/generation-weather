@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { fetchWeatherData, getWeatherDescription } from '../services/weatherApi';
+import { fetchWeatherData } from '../services/weatherApi';
 
 const useWeather = () => {
   const [weatherData, setWeatherData] = useState(null);
@@ -16,18 +16,10 @@ const useWeather = () => {
     setError(null);
 
     try {
-      const data = await fetchWeatherData(city);
+      // fetchWeatherData already returns formatted data
+      const formattedData = await fetchWeatherData(city);
 
-      // Format the data for our UI
-      const formattedData = {
-        city: city,
-        temperature: data.current.temperature_2m,
-        temperatureUnit: data.current_units.temperature_2m,
-        description: getWeatherDescription(data.current.weather_code),
-        windSpeed: data.current.wind_speed_10m,
-        windSpeedUnit: data.current_units.wind_speed_10m
-      };
-
+      // No need to re-format it - just use it directly
       setWeatherData(formattedData);
     } catch (err) {
       setError(err.message || 'Failed to fetch weather data');
