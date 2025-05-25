@@ -7,11 +7,13 @@ const WeatherCard = ({ data }) => {
 
   return (
     <div className="weather-card">
-      <h2 className="city-name">{capitalizeWords(data.city)}</h2>
+      <h2 className="city-name">{data.city ? capitalizeWords(data.city) : 'Unknown Location'}</h2>
       <div className="temperature">
-        {formatTemperature(data.temperature, data.temperatureUnit)}
+        {data.temperature !== null && data.temperature !== undefined
+          ? formatTemperature(data.temperature, data.temperatureUnit)
+          : 'Temperature unavailable'}
       </div>
-      <div className="description">{data.description}</div>
+      <div className="description">{data.description || 'No weather description available'}</div>
       <WeatherDetails data={data} />
     </div>
   );

@@ -156,7 +156,7 @@ export const fetchWeatherData = async (city) => {
     const weatherData = await handleApiResponse(weatherResponse, 'Weather');
 
     // Validate weather data structure
-    if (!weatherData.current || weatherData.current.temperature_2m === undefined) {
+    if (!weatherData || !weatherData.current) {
       throw new WeatherApiError(
         'Received invalid weather data format from the API',
         null,
@@ -164,12 +164,26 @@ export const fetchWeatherData = async (city) => {
       );
     }
 
-    // Format the data for UI consumption
+    // Check if we have the expected property
+    if (weatherData.current.temperature_2m === undefined) {
+      console.warn('API response missing temperature data:', weatherData);
+
+      // Format the data for UI consumption
+      const formattedData = formatWeatherData(weatherData, validatedCity);
+
+      // Cache before returning the weather data
+      cacheWeatherData(validatedCity, formattedData);
+
+      return formattedData;
+    }
+
+    // Format the data for UI consumption (normal path)
     const formattedData = formatWeatherData(weatherData, validatedCity);
 
-    // Cache before returning the weather data
+    // Cache the formatted data
     cacheWeatherData(validatedCity, formattedData);
 
+    // Return the formatted data
     return formattedData;
   } catch (error) {
     // Re-throw WeatherApiError instances, but wrap other errors
@@ -307,18 +321,39 @@ export const getWeatherDescription = (code) => {
  * @returns {Object} Formatted weather data ready for display
  */
 export const formatWeatherData = (weatherData, cityName) => {
-  if (!weatherData || !weatherData.current) {
-    throw new WeatherApiError('Cannot format invalid weather data', null, 'dataFormat');
+  // Check if we have valid weather data
+  if (!weatherData) {
+    throw new WeatherApiError('Weather data is missing', null, 'dataFormat');
   }
 
+  // Check if current data exists
+  if (!weatherData.current) {
+    throw new WeatherApiError('Current weather data is missing', null, 'dataFormat');
+  }
+
+  // Get weather properties with safe fallbacks
+  const temperature = weatherData.current.temperature_2m !== undefined ?
+    weatherData.current.temperature_2m : null;
+
+  const weatherCode = weatherData.current.weather_code !== undefined ?
+    weatherData.current.weather_code : null;
+
+  const windSpeed = weatherData.current.wind_speed_10m !== undefined ?
+    weatherData.current.wind_speed_10m : null;
+
+  // Get units with safe fallbacks
+  const temperatureUnit = (weatherData.current_units && weatherData.current_units.temperature_2m) || '°C';
+  const windSpeedUnit = (weatherData.current_units && weatherData.current_units.wind_speed_10m) || 'km/h';
+
+  // Return formatted data with all properties safely extracted
   return {
     city: cityName,
-    temperature: weatherData.current.temperature_2m,
-    temperatureUnit: weatherData.current_units?.temperature_2m || '°C',
-    description: getWeatherDescription(weatherData.current.weather_code),
-    weatherCode: weatherData.current.weather_code,
-    windSpeed: weatherData.current.wind_speed_10m,
-    windSpeedUnit: weatherData.current_units?.wind_speed_10m || 'km/h',
+    temperature: temperature,
+    temperatureUnit: temperatureUnit,
+    description: getWeatherDescription(weatherCode),
+    weatherCode: weatherCode,
+    windSpeed: windSpeed,
+    windSpeedUnit: windSpeedUnit,
     timestamp: new Date().toISOString()
   };
 };
