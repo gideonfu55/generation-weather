@@ -24,14 +24,14 @@ This Weather App allows users to check the current weather for one city or multi
 4. After the project dependencies and libraries are installed, enter 'npm start' from the terminal.
    <br><br>Likewise, with the alternate method in 3, enter 'npm start' in the command prompt from the project directory path.
 
-## Project Files
+## Project Structure/Files
 - `src/assets`: Where CSS file for index.html is located.
 - `src/components`: Where all the App class and all other React components (e.g. Search Bar, Header, Weather Card, Weather Details, City Comparison) for the features are located.
 - `src/hooks`: Where the React Hooks for the two main features are located.
 - `src/services`: Where the Weather Featch API itself is located (as a service class).
 - `src/utils`: Where the weather data formatter is located.
   
-## What I Learned
+## What I Learnt
 - How to do response error handling more efficiently in code.
 - Proper input validation and error handling.
 - Caching data to ensure that fetching of data is not overly done.
