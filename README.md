@@ -12,7 +12,7 @@ This Weather App allows users to check the current weather for one city or multi
 ## How to Navigate & Install and Run the Code
 1. Clone this repository:
    ```bash
-   git clone [https://github.com/yourusername/weather-app-open-meteo.git](https://github.com/gideonfu55/generation-weather.git) <directory>
+   git clone https://github.com/gideonfu55/generation-weather.git <directory>
    ```
    Replace <directory> with your desired directory name or file path. If the directory does not exist, Git will create it for you.
    
