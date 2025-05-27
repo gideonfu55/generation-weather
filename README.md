@@ -20,9 +20,9 @@ This Weather App allows users to check the current weather for one city or multi
    ```bash
    cd <your directory>
    ```
-3. Use VS Code to open the project from its directory. Then, open the terminal and enter 'npm install'. \nAlternatively, you can right click your project directory and click 'Open in Terminal'. This will open the command prompt with the project path and you can enter 'npm install' from here.
+3. Use VS Code to open the project from its directory. Then, open the terminal and enter 'npm install'. <br>Alternatively, you can right click your project directory and click 'Open in Terminal'. This will open the command prompt with the project path and you can enter 'npm install' from here.
 4. After the project dependencies and libraries are installed, enter 'npm start' from the terminal.
-   \nLikewise, with the alternate method in 3, enter 'npm start' in the command prompt from the project directory path.
+   <br>Likewise, with the alternate method in 3, enter 'npm start' in the command prompt from the project directory path.
 
 ## Project Files
 - `src/assets`: Where CSS file for index.html is located.
