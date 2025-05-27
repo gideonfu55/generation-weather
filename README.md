@@ -14,7 +14,7 @@ This Weather App allows users to check the current weather for one city or multi
    ```bash
    git clone https://github.com/gideonfu55/generation-weather.git <directory>
    ```
-   Replace <directory> with your desired directory name or file path. If the directory does not exist, Git will create it for you.
+   Replace '<directory>' with your desired directory name or file path. If the directory does not exist, Git will create it for you.
    
 2. Navigate to the project folder:
    ```bash
