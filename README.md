@@ -41,11 +41,12 @@ This Weather App allows users to check the current weather for one city or multi
 - `src/services`: Where the Weather Featch API itself is located (as a service class).
 - `src/utils`: Where the weather data formatter is located.
   
-## What I Learnt
+## What I Learnt (in using GenAI)
 
 - How to do response error handling more efficiently in code.
 - Proper input validation and error handling.
 - Caching data to ensure that fetching of data is not overly done.
+- All the above by using more effective prompts and iterations of prompts for comparatively better outputs.
 
 ## Challenges
 
